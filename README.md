@@ -3,6 +3,9 @@
 [![Package Version](https://img.shields.io/hexpm/v/integer_complexity)](https://hex.pm/packages/integer_complexity)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/integer_complexity/)
 
+A library for computing the integer complexity (and representation) of an integer.
+
+
 ```sh
 gleam add integer_complexity
 ```
