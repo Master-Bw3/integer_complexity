@@ -1,17 +1,11 @@
-import gary/array as gary
 import gleam/bool
-import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import gleam/option.{None, Some}
 import gleam/result
-import gleam_community/maths/elementary.{natural_logarithm}
 import internal/array
 
-const integer_limit = 200
-
-//2_147_483_647
+const integer_limit = 2_147_483_647
 
 pub fn main() {
   get_complexity(new_cache(), 353_942_783)
@@ -203,12 +197,6 @@ fn calc_t(t: Int, target: Int, index: Int) -> Int {
     True -> calc_t(t - 1, target, index)
     False -> t
   }
-}
-
-fn log(n: Float) -> Float {
-  let assert Ok(result) = natural_logarithm(n)
-
-  result
 }
 
 @internal
