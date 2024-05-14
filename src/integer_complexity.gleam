@@ -47,25 +47,44 @@ pub fn new_cache() -> ComplexitiesCache {
   ComplexitiesCache(array, 0)
 }
 
-//todo: make this actually efficient
 pub fn get_complexities_up_to(
   cache: ComplexitiesCache,
   integer: Int,
 ) -> #(ComplexitiesCache, List(Int)) {
+  case get_complexity_data_up_to(cache, integer) {
+    #(cache, data) -> #(cache, list.map(data, fn(x) { x.complexity }))
+  }
+}
+
+pub fn get_expressions_up_to(
+  cache: ComplexitiesCache,
+  integer: Int,
+) -> #(ComplexitiesCache, List(Expression)) {
+  case get_complexity_data_up_to(cache, integer) {
+    #(cache, data) -> #(
+      cache,
+      list.map(data, fn(x) { construct_expression(cache, x.from) }),
+    )
+  }
+}
+
+fn get_complexity_data_up_to(
+  cache: ComplexitiesCache,
+  integer: Int,
+) -> #(ComplexitiesCache, List(ComplexityData)) {
   case integer <= cache.highest_computed {
     True -> {
       let list =
         array.to_list(cache.array)
         |> list.drop(1)
         |> list.take(integer)
-        |> list.map(fn(x) { x.complexity })
 
       #(cache, list)
     }
 
     False -> {
       let assert Ok(new_cache) = extend_complexity_list(integer, cache)
-      get_complexities_up_to(ComplexitiesCache(new_cache, integer), integer)
+      get_complexity_data_up_to(ComplexitiesCache(new_cache, integer), integer)
     }
   }
 }
@@ -286,23 +305,6 @@ fn a000792_rec(n: Int, result: Int) -> Int {
   }
 }
 
-@internal
-pub fn is_prime(n: Int) -> Bool {
-  use <- bool.guard(n == 2, True)
-  use <- bool.guard(n <= 1, False)
-
-  is_prime_rec(n, 2)
-}
-
-fn is_prime_rec(n: Int, divisor: Int) -> Bool {
-  use <- bool.guard(divisor > n / 2, True)
-
-  case n % divisor {
-    0 -> False
-    _ -> is_prime_rec(n, divisor + 1)
-  }
-}
-
 fn construct_expression(
   cache: ComplexitiesCache,
   derived_expression: DerivedExpression,
@@ -345,6 +347,15 @@ fn represent_multiply(this, lhs: Expression, rhs: Expression) -> String {
   }
 
   lhs_representation <> " * " <> rhs_representation
+}
+
+@internal
+pub fn evaluate_expression(expression: Expression) -> Int {
+  case expression {
+    One -> 1
+    Add(lhs, rhs) -> evaluate_expression(lhs) + evaluate_expression(rhs)
+    Multiply(lhs, rhs) -> evaluate_expression(lhs) * evaluate_expression(rhs)
+  }
 }
 
 fn compare_precidence(lhs: Expression, rhs: Expression) {

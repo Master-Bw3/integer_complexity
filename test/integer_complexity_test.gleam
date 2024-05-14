@@ -1,7 +1,7 @@
 import gleam/list
 import gleeunit
 import gleeunit/should
-import integer_complexity
+import integer_complexity.{type Expression, Add, Multiply, One}
 
 pub fn main() {
   gleeunit.main()
@@ -23,37 +23,56 @@ const a000792 = [
 
 pub fn complexity_test() {
   let cache = integer_complexity.new_cache()
-  integer_complexity.get_complexities_up_to(cache, 79).1
+  integer_complexity.get_complexities_up_to(cache, list.length(complexities)).1
   |> should.equal(complexities)
 }
 
 pub fn get_complexity_test() {
   let result =
-    integer_complexity.get_complexity(integer_complexity.new_cache(), 79).1
+    integer_complexity.get_complexity(
+      integer_complexity.new_cache(),
+      list.length(complexities),
+    ).1
 
   should.equal(result, 14)
-}
-
-// gleeunit test functions end in `_test`
-pub fn is_prime_test() {
-  integer_complexity.is_prime(1)
-  |> should.be_false()
-
-  integer_complexity.is_prime(25)
-  |> should.be_false()
-
-  integer_complexity.is_prime(2)
-  |> should.be_true()
-
-  integer_complexity.is_prime(3)
-  |> should.be_true()
-
-  integer_complexity.is_prime(71)
-  |> should.be_true()
 }
 
 pub fn a000792_test() {
   list.range(0, list.length(a000792) - 1)
   |> list.map(integer_complexity.a000792)
   |> should.equal(a000792)
+}
+
+pub fn evaluate_expression_test() {
+  let expression = Multiply(Add(One, One), Add(One, Add(One, One)))
+
+  integer_complexity.evaluate_expression(expression)
+  |> should.equal(6)
+}
+
+pub fn expression_test() {
+  let expressions =
+    integer_complexity.get_expressions_up_to(
+      integer_complexity.new_cache(),
+      1000,
+    ).1
+
+  //test that expression evaluates to n
+  list.index_map(expressions, fn(x, i) { #(i + 1, x) })
+  |> list.all(fn(item) {
+    item.0 == integer_complexity.evaluate_expression(item.1)
+  })
+  |> should.be_true()
+
+  //test for correct number of ones
+  list.take(expressions, list.length(complexities))
+  |> list.map(count_ones)
+  |> should.equal(complexities)
+}
+
+fn count_ones(expression: Expression) -> Int {
+  case expression {
+    One -> 1
+    Add(lhs, rhs) | Multiply(lhs, rhs) -> count_ones(lhs) + count_ones(rhs)
+  }
 }
