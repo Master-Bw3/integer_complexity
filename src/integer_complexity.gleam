@@ -1,18 +1,9 @@
 import gleam/bool
 import gleam/int
-import gleam/io
 import gleam/list
-import gleam/order
 import gleam/result
-import internal/array
-
-pub fn main() {
-  get_expression(new_cache(), 34).1
-  |> represent_expression()
-  |> io.debug
-
-  Nil
-}
+import integer_complexity/expression.{type Expression}
+import integer_complexity/internal/array
 
 pub opaque type ComplexitiesCache {
   ComplexitiesCache(array: array.Array(ComplexityData), highest_computed: Int)
@@ -27,12 +18,6 @@ type DerivedExpression {
   DerivedMultiply(lhs: DerivedExpression, rhs: DerivedExpression)
   Derived(from_complexity: Int)
   DerivedOne
-}
-
-pub type Expression {
-  Add(lhs: Expression, rhs: Expression)
-  Multiply(lhs: Expression, rhs: Expression)
-  One
 }
 
 const integer_limit = 2_147_483_647
@@ -310,11 +295,14 @@ fn construct_expression(
   derived_expression: DerivedExpression,
 ) -> Expression {
   case derived_expression {
-    DerivedOne -> One
+    DerivedOne -> expression.One
     DerivedAdd(lhs, rhs) ->
-      Add(construct_expression(cache, lhs), construct_expression(cache, rhs))
+      expression.Add(
+        construct_expression(cache, lhs),
+        construct_expression(cache, rhs),
+      )
     DerivedMultiply(lhs, rhs) ->
-      Multiply(
+      expression.Multiply(
         construct_expression(cache, lhs),
         construct_expression(cache, rhs),
       )
@@ -322,46 +310,5 @@ fn construct_expression(
       let assert Ok(data) = array.get(cache.array, n)
       construct_expression(cache, data.from)
     }
-  }
-}
-
-pub fn represent_expression(expression: Expression) -> String {
-  case expression {
-    One -> "1"
-    Add(lhs, rhs) ->
-      represent_expression(lhs) <> " + " <> represent_expression(rhs)
-    Multiply(lhs, rhs) -> {
-      represent_multiply(expression, lhs, rhs)
-    }
-  }
-}
-
-fn represent_multiply(this, lhs: Expression, rhs: Expression) -> String {
-  let lhs_representation = case compare_precidence(this, lhs) {
-    order.Gt -> "(" <> represent_expression(lhs) <> ")"
-    _ -> represent_expression(lhs)
-  }
-  let rhs_representation = case compare_precidence(this, rhs) {
-    order.Gt -> "(" <> represent_expression(rhs) <> ")"
-    _ -> represent_expression(rhs)
-  }
-
-  lhs_representation <> " * " <> rhs_representation
-}
-
-@internal
-pub fn evaluate_expression(expression: Expression) -> Int {
-  case expression {
-    One -> 1
-    Add(lhs, rhs) -> evaluate_expression(lhs) + evaluate_expression(rhs)
-    Multiply(lhs, rhs) -> evaluate_expression(lhs) * evaluate_expression(rhs)
-  }
-}
-
-fn compare_precidence(lhs: Expression, rhs: Expression) {
-  case lhs, rhs {
-    Add(_, _), Multiply(_, _) -> order.Lt
-    Multiply(_, _), Add(_, _) -> order.Gt
-    _, _ -> order.Eq
   }
 }

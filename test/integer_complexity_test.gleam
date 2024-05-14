@@ -1,7 +1,8 @@
 import gleam/list
 import gleeunit
 import gleeunit/should
-import integer_complexity.{type Expression, Add, Multiply, One}
+import integer_complexity
+import integer_complexity/expression.{type Expression, Add, Multiply, One}
 
 pub fn main() {
   gleeunit.main()
@@ -46,7 +47,7 @@ pub fn a000792_test() {
 pub fn evaluate_expression_test() {
   let expression = Multiply(Add(One, One), Add(One, Add(One, One)))
 
-  integer_complexity.evaluate_expression(expression)
+  expression.evaluate_expression(expression)
   |> should.equal(6)
 }
 
@@ -59,9 +60,7 @@ pub fn expression_test() {
 
   //test that expression evaluates to n
   list.index_map(expressions, fn(x, i) { #(i + 1, x) })
-  |> list.all(fn(item) {
-    item.0 == integer_complexity.evaluate_expression(item.1)
-  })
+  |> list.all(fn(item) { item.0 == expression.evaluate_expression(item.1) })
   |> should.be_true()
 
   //test for correct number of ones
