@@ -1,3 +1,4 @@
+import gary/array as gary
 import gleam/bool
 import gleam/float
 import gleam/int
@@ -8,106 +9,193 @@ import gleam/result
 import gleam_community/maths/elementary.{natural_logarithm}
 import internal/array
 
+const integer_limit = 200
+
+//2_147_483_647
+
 pub fn main() {
-  complexity(2_000_000)
+  get_complexity(new_cache(), 353_942_783)
   |> io.debug
 }
 
-///Calculate the integer complexity of a positive integer
-pub fn complexity(n_max: Int) -> Result(List(Int), Nil) {
-  //ensure positive integers only
-  use <- bool.guard(n_max < 0, Error(Nil))
-
-  let c_max =
-    float.round(float.floor({ 3.0 *. log(int.to_float(n_max)) /. log(2.0) }))
-    + 1
-
-  let assert Ok(compl) =
-    list.range(0, n_max)
-    |> list.map(fn(_) { c_max })
-    |> array.from_list(c_max)
-    |> array.set(1, 1)
-
-  Ok(complexity_rec(2, n_max, compl))
+pub opaque type ComplexitiesCache {
+  ComplexitiesCache(array: array.Array(Int), highest_computed: Int)
 }
 
-fn complexity_rec(n: Int, n_max: Int, compl: array.Array(Int)) -> List(Int) {
-  use <- bool.lazy_guard(n > n_max, fn() { array.to_list(compl) })
+pub fn new_cache() -> ComplexitiesCache {
+  ComplexitiesCache(array.from_list([0, 1], 0), 0)
+}
+
+//todo: make this actually efficient
+pub fn get_complexities_up_to(
+  cache: ComplexitiesCache,
+  integer: Int,
+) -> #(ComplexitiesCache, List(Int)) {
+  case integer <= cache.highest_computed {
+    True -> {
+      let list =
+        array.to_list(cache.array)
+        |> list.drop(1)
+        |> list.take(integer)
+
+      #(cache, list)
+    }
+
+    False -> {
+      let assert Ok(new_cache) = extend_complexity_list(integer, cache)
+      get_complexities_up_to(ComplexitiesCache(new_cache, integer), integer)
+    }
+  }
+}
+
+pub fn get_complexity(
+  cache cache: ComplexitiesCache,
+  of integer: Int,
+) -> #(ComplexitiesCache, Int) {
+  case array.get(cache.array, integer) {
+    Ok(complexity) if integer <= cache.highest_computed -> #(cache, complexity)
+
+    _ -> {
+      let assert Ok(new_cache) = extend_complexity_list(integer, cache)
+
+      get_complexity(ComplexitiesCache(new_cache, integer), integer)
+    }
+  }
+}
+
+///Calculate the integer complexity of a positive integer
+fn extend_complexity_list(
+  max_integer: Int,
+  cache: ComplexitiesCache,
+) -> Result(array.Array(Int), Nil) {
+  //ensure positive integers only
+  use <- bool.guard(max_integer < 0, Error(Nil))
+
+  // let complexity_upper_bound = fn(_) { 2_147_483_647 }
+  // fn(integer) {
+  //   float.round(float.floor({ 3.0 *. log(int.to_float(integer)) /. log(2.0) }))
+  //   + 1
+  // }
+
+  let extension_start = cache.highest_computed
+  let complexity_array = cache.array
+
+  Ok(complexity_rec(
+    int.max(2, extension_start + 1),
+    max_integer,
+    complexity_array,
+  ))
+}
+
+fn complexity_rec(
+  n: Int,
+  max_integer: Int,
+  complexity_array: array.Array(Int),
+) -> array.Array(Int) {
+  use <- bool.lazy_guard(n > max_integer, fn() { complexity_array })
 
   //usual best value
-  let assert Ok(a) =
-    array.get(compl, n - 1)
-    |> result.map(fn(x) { x + 1 })
+  //1 + complexity of (current integer - 1)
+  let usual_best_value =
+    result.unwrap(array.get(complexity_array, n - 1), integer_limit) + 1
 
-  let assert Ok(compl_n) = array.get(compl, n)
-  let assert Ok(compl) = case a < compl_n {
-    True -> array.set(compl, n, a)
-    False -> Ok(compl)
+  let complexity_n =
+    array.get(complexity_array, n)
+    |> result.unwrap(integer_limit)
+
+  let assert Ok(complexity) = case usual_best_value < complexity_n {
+    True -> array.set(complexity_array, n, usual_best_value)
+    False -> Ok(complexity_array)
   }
 
   // computing kMax 
-  let assert Ok(target) = array.get(compl, n - 1)
+  let assert target =
+    array.get(complexity, n - 1)
+    |> result.unwrap(integer_limit)
+
   let t = calc_t(target / 2, target, n)
 
   let k_max = a000792(t)
 
   // testing the sums
-  let compl = sums(6, k_max, n, compl)
+  let complexity = sums(6, k_max, n, complexity)
 
   // testing the products
-  let compl =
+  let complexity =
     products(
       2,
-      float.round(
-        float.floor(float.min(
-          int.to_float(n),
-          int.to_float(n_max) /. int.to_float(n),
-        )),
-      ),
+      // float.round(
+      //   float.floor(float.min(
+      //     int.to_float(n),
+      //     int.to_float(max_integer) /. int.to_float(n),
+      //   )),
+      // ),
       n,
-      compl,
+      n,
+      complexity,
     )
 
-  complexity_rec(n + 1, n_max, compl)
+  complexity_rec(n + 1, max_integer, complexity)
 }
 
-fn sums(m: Int, max: Int, n: Int, compl: array.Array(Int)) -> array.Array(Int) {
-  use <- bool.guard(m > max, compl)
+fn sums(
+  m: Int,
+  max: Int,
+  n: Int,
+  complexity: array.Array(Int),
+) -> array.Array(Int) {
+  use <- bool.guard(m > max, complexity)
 
-  let assert Ok(compl_m) = array.get(compl, m)
-  let assert Ok(compl_n) = array.get(compl, n)
-  let assert Ok(compl_n_m) = array.get(compl, n - m)
+  let complexity_m =
+    array.get(complexity, m)
+    |> result.unwrap(integer_limit)
 
-  let sum_value = compl_m + compl_n_m
+  let complexity_n =
+    array.get(complexity, n)
+    |> result.unwrap(integer_limit)
 
-  let assert Ok(updated_compl) = case sum_value < compl_n {
-    True -> array.set(compl, n, sum_value)
-    False -> Ok(compl)
+  let assert complexity_n_m =
+    array.get(complexity, n - m)
+    |> result.unwrap(integer_limit)
+
+  let sum_value = complexity_m + complexity_n_m
+
+  let assert Ok(updated_complexity) = case sum_value < complexity_n {
+    True -> array.set(complexity, n, sum_value)
+    False -> Ok(complexity)
   }
 
-  sums(m + 1, max, n, updated_compl)
+  sums(m + 1, max, n, updated_complexity)
 }
 
 fn products(
   k: Int,
   max: Int,
   n: Int,
-  compl: array.Array(Int),
+  complexity: array.Array(Int),
 ) -> array.Array(Int) {
-  use <- bool.guard(k > max, compl)
+  use <- bool.guard(k > max, complexity)
 
-  let assert Ok(compl_k) = array.get(compl, k)
-  let assert Ok(compl_n) = array.get(compl, n)
-  let assert Ok(compl_k_n) = array.get(compl, k * n)
+  let complexity_k =
+    array.get(complexity, k)
+    |> result.unwrap(integer_limit)
 
-  let prod_value = compl_k + compl_n
+  let complexity_n =
+    array.get(complexity, n)
+    |> result.unwrap(integer_limit)
 
-  let assert Ok(updated_compl) = case prod_value < compl_k_n {
-    True -> array.set(compl, k * n, prod_value)
-    False -> Ok(compl)
+  let complexity_k_n = array.get(complexity, k * n)
+
+  let prod_value = complexity_k + complexity_n
+
+  let assert Ok(updated_complexity) = case complexity_k_n {
+    Error(_) -> array.set(complexity, k * n, prod_value)
+    Ok(k_n_value) if prod_value < k_n_value ->
+      array.set(complexity, k * n, prod_value)
+    _ -> Ok(complexity)
   }
 
-  products(k + 1, max, n, updated_compl)
+  products(k + 1, max, n, updated_complexity)
 }
 
 fn calc_t(t: Int, target: Int, index: Int) -> Int {

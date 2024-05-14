@@ -17,8 +17,11 @@ type Array(a) =
 
 @target(erlang)
 pub fn get(array: Array(a), index: Int) -> Result(a, Nil) {
-  array.get(array, index)
-  |> result.nil_error()
+  let default_value = array.get_default(array)
+  case array.get(array, index) {
+    Ok(value) if value != default_value -> Ok(value)
+    _ -> Error(Nil)
+  }
 }
 
 @target(erlang)

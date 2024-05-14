@@ -24,10 +24,16 @@ const a000792 = [
 ]
 
 pub fn complexity_test() {
-  case integer_complexity.complexity(79) {
-    Ok([_, ..rest]) -> should.equal(complexities, rest)
-    _ -> should.fail()
-  }
+  let cache = integer_complexity.new_cache()
+  integer_complexity.get_complexities_up_to(cache, 79).1
+  |> should.equal(complexities)
+}
+
+pub fn get_complexity_test() {
+  let result =
+    integer_complexity.get_complexity(integer_complexity.new_cache(), 79).1
+
+  should.equal(result, 14)
 }
 
 // gleeunit test functions end in `_test`
