@@ -1,25 +1,9 @@
 import gleam/bool
-import gleam/int
-import gleam/io
 import gleam/list
 import gleam/option.{type Option}
 import gleam/order
 import gleam/result
 import gleam/string
-
-pub fn main() {
-  let expression = Multiply(Add(One, One), Add(One, Add(One, One)))
-
-  represent_expression(
-    expression,
-    option.Some(
-      RepresentationOptions(0, "", "‿", "", "❨", "❩", [
-        "⋅", "○", "⊙",
-      ]),
-    ),
-  )
-  |> io.debug()
-}
 
 pub type Expression {
   Add(lhs: Expression, rhs: Expression)
