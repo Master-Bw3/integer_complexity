@@ -1,3 +1,5 @@
+import gleam/bool
+import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option.{type Option}
@@ -10,7 +12,11 @@ pub fn main() {
 
   represent_expression(
     expression,
-    option.Some(RepresentationOptions(2, " ", "^", ".", "[", "]", ["8"])),
+    option.Some(
+      RepresentationOptions(0, "", "‿", "", "❨", "❩", [
+        "⋅", "○", "⊙",
+      ]),
+    ),
   )
   |> io.debug()
 }
@@ -39,48 +45,69 @@ pub fn represent_expression(
   expression: Expression,
   options: Option(RepresentationOptions),
 ) -> String {
-  represent_expression_rec(expression, option.unwrap(options, default_options))
+  represent_expression_rec(
+    expression,
+    option.unwrap(options, default_options),
+    False,
+  )
 }
 
 fn represent_expression_rec(
   expression: Expression,
   options: RepresentationOptions,
+  wrap_with_parens: Bool,
 ) -> String {
   case expression {
     One -> result.unwrap(list.first(options.digits), "")
     Add(lhs, rhs) ->
-      represent_expression_rec(lhs, options)
-      <> apply_padding(
-        options.padding,
-        options.padding_string,
-        options.addition_sign,
-      )
-      <> represent_expression_rec(rhs, options)
-    Multiply(lhs, rhs) -> {
-      represent_multiply(expression, lhs, rhs, options)
-    }
+      represent_add(expression, lhs, rhs, options, wrap_with_parens)
+
+    Multiply(lhs, rhs) -> represent_multiply(expression, lhs, rhs, options)
+  }
+}
+
+fn represent_add(
+  this: Expression,
+  lhs: Expression,
+  rhs: Expression,
+  options: RepresentationOptions,
+  wrap_with_parens: Bool,
+) -> String {
+  let base = list.length(options.digits)
+  let eval_result = evaluate_expression(this)
+
+  use <- bool.lazy_guard(eval_result <= base, fn() {
+    result.unwrap(list.at(options.digits, eval_result - 1), "")
+  })
+
+  let str =
+    represent_expression_rec(lhs, options, False)
+    <> apply_padding(
+      options.padding,
+      options.padding_string,
+      options.addition_sign,
+    )
+    <> represent_expression_rec(rhs, options, False)
+
+  case wrap_with_parens {
+    True -> options.left_parenthesis <> str <> options.right_parenthesis
+    False -> str
   }
 }
 
 fn represent_multiply(
-  this,
+  this: Expression,
   lhs: Expression,
   rhs: Expression,
   options: RepresentationOptions,
 ) -> String {
   let lhs_representation = case compare_precidence(this, lhs) {
-    order.Gt ->
-      options.left_parenthesis
-      <> represent_expression_rec(lhs, options)
-      <> options.right_parenthesis
-    _ -> represent_expression_rec(lhs, options)
+    order.Gt -> represent_expression_rec(lhs, options, True)
+    _ -> represent_expression_rec(lhs, options, False)
   }
   let rhs_representation = case compare_precidence(this, rhs) {
-    order.Gt ->
-      options.left_parenthesis
-      <> represent_expression_rec(rhs, options)
-      <> options.right_parenthesis
-    _ -> represent_expression_rec(rhs, options)
+    order.Gt -> represent_expression_rec(rhs, options, True)
+    _ -> represent_expression_rec(rhs, options, False)
   }
 
   lhs_representation
