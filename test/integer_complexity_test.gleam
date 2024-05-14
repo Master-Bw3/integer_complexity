@@ -24,8 +24,10 @@ const a000792 = [
 ]
 
 pub fn complexity_test() {
-  integer_complexity.complexity(79)
-  |> io.debug()
+  case integer_complexity.complexity(79) {
+    Ok([_, ..rest]) -> should.equal(complexities, rest)
+    _ -> should.fail()
+  }
 }
 
 // gleeunit test functions end in `_test`
