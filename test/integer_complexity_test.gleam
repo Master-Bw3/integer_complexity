@@ -1,4 +1,5 @@
 import gleam/list
+import gleam/option
 import gleeunit
 import gleeunit/should
 import integer_complexity
@@ -49,6 +50,13 @@ pub fn evaluate_expression_test() {
 
   expression.evaluate_expression(expression)
   |> should.equal(6)
+}
+
+pub fn represent_expression_test() {
+  let expression = Multiply(Add(One, One), Add(One, Add(One, One)))
+
+  expression.represent_expression(expression, option.None)
+  |> should.equal("(1 + 1) * (1 + 1 + 1)")
 }
 
 pub fn expression_test() {
