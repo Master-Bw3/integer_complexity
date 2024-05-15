@@ -29,6 +29,17 @@ pub fn complexity_test() {
   |> should.equal(complexities)
 }
 
+pub fn complexity_cache_test() {
+  let cache = integer_complexity.new_cache()
+  let n_max = list.length(complexities)
+
+  let #(_, result) =
+    integer_complexity.get_complexities_up_to(cache, n_max / 2).0
+    |> integer_complexity.get_complexities_up_to(n_max)
+
+  should.equal(result, complexities)
+}
+
 pub fn get_complexity_test() {
   let result =
     integer_complexity.get_complexity(
