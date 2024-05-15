@@ -3,6 +3,7 @@ import gleam/order
 import gleam/result
 import integer_complexity/internal/array
 
+/// Formatting options for `expression.to_string`
 pub opaque type FormatOptions(
   padding_defined,
   add_defined,
@@ -58,10 +59,12 @@ pub type DigitsDefined
 @internal
 pub type DigitsNotDefined
 
+/// Returns preset formatting options for `expression.to_string`.
 pub fn default_format_options() {
   FormatOptions(" ", "+", "*", "(", ")", array.from_list(["1"], ""), 1)
 }
 
+/// Specifies the string to use for padding (spaces). default: `" "`
 pub fn with_padding(
   options: FormatOptions(PaddingNotDefined, b, c, d, e, f),
   padding: String,
@@ -77,6 +80,7 @@ pub fn with_padding(
   )
 }
 
+/// Specifies the string to use for the addition sign. default: `"+"`
 pub fn with_addition_sign(
   options: FormatOptions(a, AddSignNotDefined, c, d, e, f),
   sign: String,
@@ -92,6 +96,7 @@ pub fn with_addition_sign(
   )
 }
 
+/// Specifies the string to use for the multiplication sign. default: `"*"`
 pub fn with_multiplication_sign(
   options: FormatOptions(a, b, MultiplySignNotDefined, d, e, f),
   sign: String,
@@ -107,6 +112,7 @@ pub fn with_multiplication_sign(
   )
 }
 
+/// Specifies the string to use for the left bracket. default: `"("`
 pub fn with_left_bracket(
   options: FormatOptions(a, b, c, LeftBracketNotDefined, e, f),
   left_bracket: String,
@@ -122,6 +128,7 @@ pub fn with_left_bracket(
   )
 }
 
+/// Specifies the string to use for the right bracket. default: `")"`
 pub fn with_right_bracket(
   options: FormatOptions(a, b, c, d, RightBracketNotDefined, f),
   right_bracket: String,
@@ -137,6 +144,9 @@ pub fn with_right_bracket(
   )
 }
 
+/// Specifies the digits to use. Digits must be ordered from least to greatest. 
+/// The (Bijective) base that will be used will be the length of the array.
+/// default: `["1"]`
 pub fn with_digits(
   options: FormatOptions(a, b, c, d, e, DigitsNotDefined),
   digits: List(String),
@@ -152,12 +162,14 @@ pub fn with_digits(
   )
 }
 
+/// A tree representing an expression.
 pub type Expression {
   Add(lhs: Expression, rhs: Expression)
   Multiply(lhs: Expression, rhs: Expression)
   One
 }
 
+/// Convert an `Expression` to a string with the specified formatting options.
 pub fn to_string(
   expression: Expression,
   options: FormatOptions(_, _, _, _, _, _),
@@ -210,7 +222,7 @@ fn conditionally_apply_parens(
   }
 }
 
-@internal
+/// Evaluate an expression.
 pub fn evaluate_expression(expression: Expression) -> Int {
   case expression {
     One -> 1

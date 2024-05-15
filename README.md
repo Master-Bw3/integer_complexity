@@ -3,10 +3,12 @@
 [![Package Version](https://img.shields.io/hexpm/v/integer_complexity)](https://hex.pm/packages/integer_complexity)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/integer_complexity/)
 
-A library for computing the integer complexity (and the corrisponding representation) of integers
+A library for computing integer complexity.
 
-based on "Algorithms for determining integer complexity" by J. Arias de Reyna and J. van de Lune
-https://arxiv.org/abs/1404.2183
+"The complexity of an integer n is the least number of 1's needed to represent it using only additions, multiplications and parentheses." (<https://oeis.org/A005245>)
+
+Based on "Algorithms for determining integer complexity" by J. Arias de Reyna and J. van de Lune
+<https://arxiv.org/abs/1404.2183>.
 
 ## Installation
 
@@ -22,7 +24,7 @@ gleam add integer_complexity
 ```gleam
 import integer_complexity
 
-pub fn main(name: String) -> String {
+pub fn main() {
   let #(cache, complexity_of_ten) =
     integer_complexity.get_complexity(integer_complexity.new_cache(), 10)
   //complexity_of_ten = 7
@@ -49,4 +51,4 @@ pub fn main(name: String) -> String {
 
 ## Targets
 
-integer_complexity supports Erlang and JavaScript.
+The Erlang and JavaScript targets are both supported.

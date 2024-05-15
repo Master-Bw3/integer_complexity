@@ -1,7 +1,7 @@
 name = "integer_complexity"
 version = "1.0.0"
 licences = ["CC0-1.0"]
-description = "A library for computing the integer complexity (and the corrisponding representation) of integers"
+description = "A library for computing integer complexity."
 repository = { type = "github", user = "Master-Bw3", repo = "integer_complexity" }
 
 
