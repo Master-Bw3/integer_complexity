@@ -1,5 +1,6 @@
 import gleam/io
 import gleam/list
+import gleam/result
 import gleeunit
 import gleeunit/should
 import integer_complexity
@@ -23,19 +24,38 @@ const a000792 = [
   1_594_323, 2_125_764, 3_188_646, 4_782_969, 6_377_292,
 ]
 
-pub fn complexity_test() {
+pub fn complexities_up_to_test() {
   let cache = integer_complexity.new_cache()
-  integer_complexity.get_complexities_up_to(cache, list.length(complexities)).1
-  |> should.equal(complexities)
+  let assert Ok(#(_, result)) =
+    integer_complexity.get_complexities_up_to(cache, list.length(complexities))
+
+  should.equal(result, complexities)
+
+  //negative input
+  let result =
+    integer_complexity.get_complexities_up_to(
+      integer_complexity.new_cache(),
+      -1,
+    )
+
+  should.be_error(result)
+
+  //zero input
+  let result =
+    integer_complexity.get_complexities_up_to(integer_complexity.new_cache(), 0)
+
+  should.be_error(result)
 }
 
 pub fn complexity_cache_test() {
   let cache = integer_complexity.new_cache()
   let n_max = list.length(complexities)
 
-  let #(_, result) =
-    integer_complexity.get_complexities_up_to(cache, n_max / 2).0
-    |> integer_complexity.get_complexities_up_to(n_max)
+  let assert Ok(#(_, result)) =
+    integer_complexity.get_complexities_up_to(cache, n_max / 2)
+    |> result.then(fn(x) {
+      integer_complexity.get_complexities_up_to(x.0, n_max)
+    })
 
   should.equal(result, complexities)
 }
@@ -47,7 +67,13 @@ pub fn get_complexity_test() {
       list.length(complexities),
     ).1
 
-  should.equal(result, 14)
+  should.equal(Ok(result), list.last(complexities))
+
+  //negative input
+  let result =
+    integer_complexity.get_complexity(integer_complexity.new_cache(), -1).1
+
+  should.equal(result, 1)
 }
 
 pub fn a000792_test() {
@@ -89,11 +115,11 @@ pub fn expression_string_base_five_test() {
 }
 
 pub fn expression_test() {
-  let expressions =
+  let assert Ok(#(_, expressions)) =
     integer_complexity.get_expressions_up_to(
       integer_complexity.new_cache(),
       1000,
-    ).1
+    )
 
   //test that expression evaluates to n
   list.index_map(expressions, fn(x, i) { #(i + 1, x) })
