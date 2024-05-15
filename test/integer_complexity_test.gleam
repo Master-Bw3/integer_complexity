@@ -74,6 +74,12 @@ pub fn get_complexity_test() {
     integer_complexity.get_complexity(integer_complexity.new_cache(), -1).1
 
   should.equal(result, 1)
+
+  //zero input
+  let result =
+    integer_complexity.get_complexity(integer_complexity.new_cache(), 0).1
+
+  should.equal(result, 0)
 }
 
 pub fn a000792_test() {
