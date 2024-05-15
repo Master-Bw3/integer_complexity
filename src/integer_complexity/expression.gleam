@@ -1,9 +1,12 @@
+import gary/array as garry
 import gleam/bool
+import gleam/io
 import gleam/list
 import gleam/option.{type Option}
 import gleam/order
 import gleam/result
 import gleam/string
+import integer_complexity/internal/array
 
 pub type Expression {
   Add(lhs: Expression, rhs: Expression)
@@ -23,6 +26,32 @@ pub type RepresentationOptions {
   )
 }
 
+type RepresentationOptionsInternal {
+  RepresentationOptionsInternal(
+    padding: Int,
+    padding_string: String,
+    addition_sign: String,
+    multiplication_sign: String,
+    left_parenthesis: String,
+    right_parenthesis: String,
+    digits: array.Array(String),
+    base: Int,
+  )
+}
+
+fn to_internal(options: RepresentationOptions) -> RepresentationOptionsInternal {
+  RepresentationOptionsInternal(
+    options.padding,
+    options.padding_string,
+    options.addition_sign,
+    options.multiplication_sign,
+    options.left_parenthesis,
+    options.right_parenthesis,
+    array.from_list(options.digits, ""),
+    list.length(options.digits),
+  )
+}
+
 const default_options = RepresentationOptions(1, " ", "+", "*", "(", ")", ["1"])
 
 pub fn represent_expression(
@@ -31,18 +60,19 @@ pub fn represent_expression(
 ) -> String {
   represent_expression_rec(
     expression,
-    option.unwrap(options, default_options),
+    to_internal(option.unwrap(options, default_options)),
     False,
   )
 }
 
 fn represent_expression_rec(
   expression: Expression,
-  options: RepresentationOptions,
+  options: RepresentationOptionsInternal,
   wrap_with_parens: Bool,
 ) -> String {
   case expression {
-    One -> result.unwrap(list.first(options.digits), "")
+    One -> result.unwrap(array.get(options.digits, 0), "")
+
     Add(lhs, rhs) ->
       represent_add(expression, lhs, rhs, options, wrap_with_parens)
 
@@ -54,14 +84,14 @@ fn represent_add(
   this: Expression,
   lhs: Expression,
   rhs: Expression,
-  options: RepresentationOptions,
+  options: RepresentationOptionsInternal,
   wrap_with_parens: Bool,
 ) -> String {
-  let base = list.length(options.digits)
+  let base = options.base
   let eval_result = evaluate_expression(this)
 
   use <- bool.lazy_guard(eval_result <= base, fn() {
-    result.unwrap(list.at(options.digits, eval_result - 1), "")
+    result.unwrap(array.get(options.digits, eval_result - 1), "")
   })
 
   let str =
@@ -83,7 +113,7 @@ fn represent_multiply(
   this: Expression,
   lhs: Expression,
   rhs: Expression,
-  options: RepresentationOptions,
+  options: RepresentationOptionsInternal,
 ) -> String {
   let lhs_representation = case compare_precidence(this, lhs) {
     order.Gt -> represent_expression_rec(lhs, options, True)
