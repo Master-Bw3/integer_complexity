@@ -1,3 +1,4 @@
+import gleam/io
 import gleam/list
 import gleam/option
 import gleeunit
@@ -68,6 +69,25 @@ pub fn represent_expression_test() {
 
   expression.represent_expression(expression, option.None)
   |> should.equal("(1 + 1) * (1 + 1 + 1)")
+}
+
+pub fn represent_expression_base_five_test() {
+  let expression =
+    Multiply(
+      Add(One, Add(One, One)),
+      Add(Multiply(Add(One, One), Add(One, One)), One),
+    )
+
+  expression.evaluate_expression(expression)
+  |> io.debug()
+
+  let options =
+    expression.RepresentationOptions(1, " ", "+", "*", "(", ")", [
+      "1", "2", "3", "4", "5",
+    ])
+
+  expression.represent_expression(expression, option.Some(options))
+  |> should.equal("3 * 5")
 }
 
 pub fn expression_test() {
