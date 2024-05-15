@@ -1,5 +1,8 @@
 import gary
 import gary/array
+import gleam/dict
+import gleam/int
+import gleam/list
 import gleam/result
 
 @target(erlang)
