@@ -156,7 +156,7 @@ fn complexity_rec(
       array.set(
         complexity_array,
         n,
-        ComplexityData(usual_best_value, DerivedAdd(DerivedOne, Derived(n - 1))),
+        ComplexityData(usual_best_value, DerivedAdd(Derived(n - 1), DerivedOne)),
       )
     False -> Ok(complexity_array)
   }
