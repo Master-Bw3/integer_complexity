@@ -1,8 +1,156 @@
 import gleam/list
-import gleam/option.{type Option}
 import gleam/order
 import gleam/result
 import integer_complexity/internal/array
+
+pub opaque type FormatOptions(
+  padding_defined,
+  add_defined,
+  multiply_defined,
+  left_paren_defined,
+  right_paren_defined,
+  digits_defined,
+) {
+  FormatOptions(
+    padding: String,
+    add_sign: String,
+    multiply_sign: String,
+    left_bracket: String,
+    right_bracket: String,
+    digits: array.Array(String),
+    base: Int,
+  )
+}
+
+@internal
+pub type PaddingDefined
+
+@internal
+pub type PaddingNotDefined
+
+@internal
+pub type AddSignDefined
+
+@internal
+pub type AddSignNotDefined
+
+@internal
+pub type MultiplySignDefined
+
+@internal
+pub type MultiplySignNotDefined
+
+@internal
+pub type LeftBracketDefined
+
+@internal
+pub type LeftBracketNotDefined
+
+@internal
+pub type RightBracketDefined
+
+@internal
+pub type RightBracketNotDefined
+
+@internal
+pub type DigitsDefined
+
+@internal
+pub type DigitsNotDefined
+
+pub fn default_format_options() {
+  FormatOptions(" ", "+", "*", "(", ")", array.from_list(["1"], ""), 1)
+}
+
+pub fn with_padding(
+  options: FormatOptions(PaddingNotDefined, b, c, d, e, f),
+  padding: String,
+) -> FormatOptions(PaddingDefined, b, c, d, e, f) {
+  FormatOptions(
+    padding,
+    options.add_sign,
+    options.multiply_sign,
+    options.left_bracket,
+    options.right_bracket,
+    options.digits,
+    options.base,
+  )
+}
+
+pub fn with_addition_sign(
+  options: FormatOptions(a, AddSignNotDefined, c, d, e, f),
+  sign: String,
+) -> FormatOptions(a, AddSignDefined, c, d, e, f) {
+  FormatOptions(
+    options.padding,
+    sign,
+    options.multiply_sign,
+    options.left_bracket,
+    options.right_bracket,
+    options.digits,
+    options.base,
+  )
+}
+
+pub fn with_multiplication_sign(
+  options: FormatOptions(a, b, MultiplySignNotDefined, d, e, f),
+  sign: String,
+) -> FormatOptions(a, b, MultiplySignDefined, d, e, f) {
+  FormatOptions(
+    options.padding,
+    options.add_sign,
+    sign,
+    options.left_bracket,
+    options.right_bracket,
+    options.digits,
+    options.base,
+  )
+}
+
+pub fn with_left_bracket(
+  options: FormatOptions(a, b, c, LeftBracketNotDefined, e, f),
+  left_bracket: String,
+) -> FormatOptions(a, b, c, LeftBracketDefined, e, f) {
+  FormatOptions(
+    options.padding,
+    options.add_sign,
+    options.multiply_sign,
+    left_bracket,
+    options.right_bracket,
+    options.digits,
+    options.base,
+  )
+}
+
+pub fn with_right_bracket(
+  options: FormatOptions(a, b, c, d, RightBracketNotDefined, f),
+  right_bracket: String,
+) -> FormatOptions(a, b, c, d, RightBracketDefined, f) {
+  FormatOptions(
+    options.padding,
+    options.add_sign,
+    options.multiply_sign,
+    options.left_bracket,
+    right_bracket,
+    options.digits,
+    options.base,
+  )
+}
+
+pub fn with_digits(
+  options: FormatOptions(a, b, c, d, e, DigitsNotDefined),
+  digits: List(String),
+) -> FormatOptions(a, b, c, d, e, DigitsDefined) {
+  FormatOptions(
+    options.padding,
+    options.add_sign,
+    options.multiply_sign,
+    options.right_bracket,
+    options.left_bracket,
+    array.from_list(digits, ""),
+    list.length(digits),
+  )
+}
 
 pub type Expression {
   Add(lhs: Expression, rhs: Expression)
@@ -10,58 +158,17 @@ pub type Expression {
   One
 }
 
-pub type RepresentationOptions {
-  RepresentationOptions(
-    padding: String,
-    addition_sign: String,
-    multiplication_sign: String,
-    left_parenthesis: String,
-    right_parenthesis: String,
-    digits: List(String),
-  )
-}
-
-type RepresentationOptionsInternal {
-  RepresentationOptionsInternal(
-    padding: String,
-    add_sign: String,
-    multiply_sign: String,
-    left_parenthesis: String,
-    right_parenthesis: String,
-    digits: array.Array(String),
-    base: Int,
-  )
-}
-
-fn to_internal(options: RepresentationOptions) -> RepresentationOptionsInternal {
-  RepresentationOptionsInternal(
-    options.padding,
-    options.addition_sign,
-    options.multiplication_sign,
-    options.left_parenthesis,
-    options.right_parenthesis,
-    array.from_list(options.digits, ""),
-    list.length(options.digits),
-  )
-}
-
-const default_options = RepresentationOptions(" ", "+", "*", "(", ")", ["1"])
-
-pub fn represent_expression(
+pub fn to_string(
   expression: Expression,
-  options: Option(RepresentationOptions),
+  options: FormatOptions(_, _, _, _, _, _),
 ) -> String {
-  represent_expression_recursive(
-    expression,
-    order.Eq,
-    to_internal(option.unwrap(options, default_options)),
-  )
+  represent_expression(expression, order.Eq, options)
 }
 
-fn represent_expression_recursive(
+fn represent_expression(
   expression: Expression,
   precidence: order.Order,
-  options: RepresentationOptionsInternal,
+  options: FormatOptions(_, _, _, _, _, _),
 ) -> String {
   let base = options.base
   let eval_result = evaluate_expression(expression)
@@ -85,21 +192,20 @@ fn represent_binary_op(
   lhs: Expression,
   rhs: Expression,
   sign: String,
-  options: RepresentationOptionsInternal,
+  options: FormatOptions(_, _, _, _, _, _),
 ) {
-  represent_expression_recursive(lhs, compare_precidence(lhs, this), options)
+  represent_expression(lhs, compare_precidence(lhs, this), options)
   <> apply_padding(options.padding, sign)
-  <> represent_expression_recursive(rhs, compare_precidence(rhs, this), options)
+  <> represent_expression(rhs, compare_precidence(rhs, this), options)
 }
 
 fn conditionally_apply_parens(
   expression_str: String,
   precidence: order.Order,
-  options: RepresentationOptionsInternal,
+  options: FormatOptions(_, _, _, _, _, _),
 ) {
   case precidence {
-    order.Lt ->
-      options.left_parenthesis <> expression_str <> options.right_parenthesis
+    order.Lt -> options.left_bracket <> expression_str <> options.right_bracket
     _ -> expression_str
   }
 }

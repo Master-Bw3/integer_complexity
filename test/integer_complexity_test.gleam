@@ -1,6 +1,5 @@
 import gleam/io
 import gleam/list
-import gleam/option
 import gleeunit
 import gleeunit/should
 import integer_complexity
@@ -64,14 +63,14 @@ pub fn evaluate_expression_test() {
   |> should.equal(6)
 }
 
-pub fn represent_expression_test() {
+pub fn expression_string_test() {
   let expression = Multiply(Add(One, One), Add(One, Add(One, One)))
 
-  expression.represent_expression(expression, option.None)
+  expression.to_string(expression, expression.default_format_options())
   |> should.equal("(1 + 1) * (1 + 1 + 1)")
 }
 
-pub fn represent_expression_base_five_test() {
+pub fn expression_string_base_five_test() {
   let expression =
     Multiply(
       Add(One, Add(One, One)),
@@ -82,11 +81,10 @@ pub fn represent_expression_base_five_test() {
   |> io.debug()
 
   let options =
-    expression.RepresentationOptions(" ", "+", "*", "(", ")", [
-      "1", "2", "3", "4", "5",
-    ])
+    expression.default_format_options()
+    |> expression.with_digits(["1", "2", "3", "4", "5"])
 
-  expression.represent_expression(expression, option.Some(options))
+  expression.to_string(expression, options)
   |> should.equal("3 * 5")
 }
 
