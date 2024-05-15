@@ -2,7 +2,6 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/order
 import gleam/result
-import gleam/string
 import integer_complexity/internal/array
 
 pub type Expression {
@@ -13,8 +12,7 @@ pub type Expression {
 
 pub type RepresentationOptions {
   RepresentationOptions(
-    padding: Int,
-    padding_string: String,
+    padding: String,
     addition_sign: String,
     multiplication_sign: String,
     left_parenthesis: String,
@@ -25,8 +23,7 @@ pub type RepresentationOptions {
 
 type RepresentationOptionsInternal {
   RepresentationOptionsInternal(
-    padding: Int,
-    padding_string: String,
+    padding: String,
     add_sign: String,
     multiply_sign: String,
     left_parenthesis: String,
@@ -39,7 +36,6 @@ type RepresentationOptionsInternal {
 fn to_internal(options: RepresentationOptions) -> RepresentationOptionsInternal {
   RepresentationOptionsInternal(
     options.padding,
-    options.padding_string,
     options.addition_sign,
     options.multiplication_sign,
     options.left_parenthesis,
@@ -49,7 +45,7 @@ fn to_internal(options: RepresentationOptions) -> RepresentationOptionsInternal 
   )
 }
 
-const default_options = RepresentationOptions(1, " ", "+", "*", "(", ")", ["1"])
+const default_options = RepresentationOptions(" ", "+", "*", "(", ")", ["1"])
 
 pub fn represent_expression(
   expression: Expression,
@@ -92,7 +88,7 @@ fn represent_binary_op(
   options: RepresentationOptionsInternal,
 ) {
   represent_expression_recursive(lhs, compare_precidence(lhs, this), options)
-  <> apply_padding(options.padding, options.padding_string, sign)
+  <> apply_padding(options.padding, sign)
   <> represent_expression_recursive(rhs, compare_precidence(rhs, this), options)
 }
 
@@ -125,8 +121,6 @@ fn compare_precidence(lhs: Expression, rhs: Expression) {
   }
 }
 
-fn apply_padding(ammount: Int, padding_string: String, str: String) -> String {
-  str
-  |> string.pad_left(ammount + string.length(str), padding_string)
-  |> string.pad_right(ammount * 2 + string.length(str), padding_string)
+fn apply_padding(padding: String, str: String) -> String {
+  padding <> str <> padding
 }

@@ -82,7 +82,7 @@ pub fn represent_expression_base_five_test() {
   |> io.debug()
 
   let options =
-    expression.RepresentationOptions(1, " ", "+", "*", "(", ")", [
+    expression.RepresentationOptions(" ", "+", "*", "(", ")", [
       "1", "2", "3", "4", "5",
     ])
 
