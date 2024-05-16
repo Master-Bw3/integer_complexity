@@ -155,8 +155,8 @@ pub fn with_digits(
     options.padding,
     options.add_sign,
     options.multiply_sign,
-    options.right_bracket,
     options.left_bracket,
+    options.right_bracket,
     array.from_list(digits, ""),
     list.length(digits),
   )
