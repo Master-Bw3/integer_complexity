@@ -1,10 +1,13 @@
 //// This module contains functions for computing the complexity of an integer, 
 //// and a corrisponding mathematical expression that uses only ones, addition, and multiplication to reach that integer.
+//// testing the products
 
 import gleam/bool
+import gleam/float
 import gleam/int
 import gleam/list
 import gleam/result
+import gleam_community/maths/arithmetics
 import integer_complexity/expression.{type Expression}
 import integer_complexity/internal/array
 
@@ -162,6 +165,7 @@ fn complexity_rec(
   max_integer: Int,
   complexity_array: array.Array(ComplexityData),
 ) -> array.Array(ComplexityData) {
+  // io.debug(list.map(array.to_list(complexity_array), fn(x) { x.complexity }))
   use <- bool.lazy_guard(n > max_integer, fn() { complexity_array })
 
   //usual best value
@@ -177,7 +181,7 @@ fn complexity_rec(
     |> result.map(fn(x) { x.complexity })
     |> result.unwrap(integer_limit)
 
-  let assert Ok(complexity) = case usual_best_value < complexity_n {
+  let assert Ok(complexity_array) = case usual_best_value < complexity_n {
     True ->
       array.set(
         complexity_array,
@@ -189,7 +193,7 @@ fn complexity_rec(
 
   // computing kMax 
   let assert target =
-    array.get(complexity, n - 1)
+    array.get(complexity_array, n - 1)
     |> result.map(fn(x) { x.complexity })
     |> result.unwrap(integer_limit)
 
@@ -198,24 +202,26 @@ fn complexity_rec(
   let k_max = a000792(t)
 
   // testing the sums
-  let complexity = sums(6, k_max, n, complexity)
+  let complexity_array = sums(6, k_max, n, complexity_array)
 
-  // testing the products
-  let complexity =
-    products(
-      2,
-      // float.round(
-      //   float.floor(float.min(
-      //     int.to_float(n),
-      //     int.to_float(max_integer) /. int.to_float(n),
-      //   )),
-      // ),
-      n,
-      n,
-      complexity,
-    )
+  // let complexity_array =
+  //   products(
+  //     2,
+  //     // float.round(
+  //     //   float.floor(float.min(
+  //     //     int.to_float(n),
+  //     //     int.to_float(max_integer) /. int.to_float(n),
+  //     //   )),
+  //     // ),
+  //     n,
+  //     n,
+  //     complexity_array,
+  //   )
 
-  complexity_rec(n + 1, max_integer, complexity)
+  // testing the divisors
+  let complexity_array = divisors(n, complexity_array)
+
+  complexity_rec(n + 1, max_integer, complexity_array)
 }
 
 fn sums(
@@ -254,6 +260,56 @@ fn sums(
   }
 
   sums(m + 1, max, n, updated_complexity)
+}
+
+fn divisors(
+  n: Int,
+  complexity_array: array.Array(ComplexityData),
+) -> array.Array(ComplexityData) {
+  let divisors = arithmetics.divisors(n)
+  let smaller_divisors =
+    list.take(divisors, float.round(int.to_float(list.length(divisors)) /. 2.0))
+
+  let complexity_data_n = array.get(complexity_array, n)
+
+  let sum_complexity =
+    list.fold(smaller_divisors, complexity_data_n, fn(acc, a) {
+      let complexity_a =
+        array.get(complexity_array, a)
+        |> result.map(fn(x) { x.complexity })
+
+      let complexity_b =
+        array.get(complexity_array, n / a)
+        |> result.map(fn(x) { x.complexity })
+
+      let prod_complexity_result =
+        result.map(complexity_a, fn(x) {
+          result.map(complexity_b, int.add(x, _))
+        })
+        |> result.flatten
+
+      case acc, prod_complexity_result {
+        Error(_), Ok(prod_complexity) ->
+          Ok(ComplexityData(
+            prod_complexity,
+            DerivedAdd(Derived(a), Derived(n / a)),
+          ))
+
+        Ok(data_n), Ok(prod_complexity) if prod_complexity < data_n.complexity ->
+          Ok(ComplexityData(
+            prod_complexity,
+            DerivedMultiply(Derived(a), Derived(n / a)),
+          ))
+
+        Ok(data_n), _ -> Ok(data_n)
+
+        _, _ -> Error(Nil)
+      }
+    })
+
+  sum_complexity
+  |> result.then(array.set(complexity_array, n, _))
+  |> result.unwrap(complexity_array)
 }
 
 fn products(
