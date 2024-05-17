@@ -13,7 +13,7 @@ import gleam_community/maths/arithmetics
 import gleam_community/maths/piecewise
 import integer_complexity/expression.{type Expression}
 import integer_complexity/internal/array
-import rememo/ets/memo
+import integer_complexity/internal/memo
 
 /// A cache used to store already-computed integer complexities. See: `integer_complexity.new_cache()`.
 pub opaque type ComplexitiesCache {
