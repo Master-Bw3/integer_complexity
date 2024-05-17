@@ -1,7 +1,7 @@
 import gleam/list
 import gleam/order
 import gleam/result
-import integer_complexity/internal/array
+import glearray as array
 
 /// Formatting options for `expression.to_string`
 pub opaque type FormatOptions(
@@ -61,7 +61,7 @@ pub type DigitsNotDefined
 
 /// Returns preset formatting options for `expression.to_string`.
 pub fn default_format_options() {
-  FormatOptions(" ", "+", "*", "(", ")", array.from_list(["1"], ""), 1)
+  FormatOptions(" ", "+", "*", "(", ")", array.from_list(["1"]), 1)
 }
 
 /// Specifies the string to use for padding (spaces). default: `" "`
@@ -157,7 +157,7 @@ pub fn with_digits(
     options.multiply_sign,
     options.left_bracket,
     options.right_bracket,
-    array.from_list(digits, ""),
+    array.from_list(digits),
     list.length(digits),
   )
 }
