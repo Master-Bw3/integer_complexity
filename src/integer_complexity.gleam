@@ -5,14 +5,9 @@
 import gleam/bool
 import gleam/float
 import gleam/int
-import gleam/io
 import gleam/list
-import gleam/option.{type Option, None, Some}
-import gleam/result
 import gleam_community/maths/arithmetics
-import gleam_community/maths/piecewise
 import integer_complexity/expression.{type Expression}
-import integer_complexity/internal/array
 import integer_complexity/internal/memo
 
 /// The complexity and a valid expression of an Integer.
@@ -28,11 +23,6 @@ type DerivedExpression {
   Derived(from_complexity: Int)
   DerivedOne
 }
-
-/// A big numner.
-const integer_limit = 2_147_483_647
-
-const default_data = ComplexityData(complexity: 0, from: DerivedOne)
 
 /// Create a new cache used to store computed integer complexities.
 pub const new_cache = memo.create
@@ -62,22 +52,6 @@ pub fn get_expressions_up_to(
 
 /// Returns the complexity data from 1 up to the specified integer.
 fn get_complexity_data_up_to(cache, integer: Int) -> List(ComplexityData) {
-  // case integer <= cache.highest_computed {
-  //   True -> {
-  //     let list =
-  //       array.to_list(cache.array)
-  //       |> list.drop(1)
-  //       |> list.take(integer)
-
-  //     #(cache, list)
-  //   }
-
-  //   False -> {
-  //     let assert Ok(new_cache) = extend_complexity_list(integer, cache)
-  //     get_complexity_data_up_to(ComplexitiesCache(new_cache, integer), integer)
-  //   }
-  // }
-
   list.range(1, integer)
   |> list.map(complexity_rec(cache, _))
 }
@@ -119,123 +93,69 @@ fn complexity_rec(cache, n: Int) -> ComplexityData {
       DerivedAdd(Derived(n - 1), DerivedOne),
     )
 
-  let assert target = complexity_rec(cache, n - 1).complexity
+  let target = complexity_rec(cache, n - 1).complexity
   let t = calc_t(target / 2, target, n)
   let k_max = a000792(t)
 
-  let sum_test_result =
-    sums(cache, n, k_max)
-    |> option.unwrap(base_complexity)
-
-  let divisor_test_result =
-    divisors(cache, n)
-    |> option.unwrap(base_complexity)
-
-  let assert Ok(result) =
-    piecewise.list_minimum(
-      [base_complexity, sum_test_result, divisor_test_result],
-      fn(a, b) { int.compare(a.complexity, b.complexity) },
-    )
-
-  result
+  //take lowest complexity from base_complexity, sum test, and divisor test
+  base_complexity
+  |> test_sums(cache, n, k_max)
+  |> test_divisors(cache, n)
 }
 
-fn sums(cache, n: Int, max: Int) -> Option(ComplexityData) {
-  use <- bool.guard(max < 6, None)
+fn test_sums(
+  current_complexity_data: ComplexityData,
+  cache,
+  n: Int,
+  max: Int,
+) -> ComplexityData {
+  use <- bool.guard(max < 6, current_complexity_data)
 
   list.range(6, max)
-  |> list.fold(None, fn(acc, m) {
+  |> list.fold(current_complexity_data, fn(acc, m) {
     let complexity_m = complexity_rec(cache, m).complexity
 
     let complexity_n_m = complexity_rec(cache, n - m).complexity
 
     let sum_value = complexity_m + complexity_n_m
 
-    case acc {
-      Some(ComplexityData(complexity, _)) if sum_value < complexity ->
-        Some(ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m))))
-
-      None ->
-        Some(ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m))))
-
-      _ -> acc
+    case sum_value < acc.complexity {
+      True -> ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m)))
+      False -> acc
     }
   })
 }
 
-fn divisors(cache, n: Int) -> Option(ComplexityData) {
+fn test_divisors(
+  current_complexity_data: ComplexityData,
+  cache,
+  n: Int,
+) -> ComplexityData {
   let divisors = arithmetics.divisors(n)
   let smaller_divisors =
     list.take(divisors, float.round(int.to_float(list.length(divisors)) /. 2.0))
     |> list.drop(1)
 
   let sum_complexity =
-    list.fold(smaller_divisors, None, fn(acc, a) {
+    list.fold(smaller_divisors, current_complexity_data, fn(acc, a) {
       let complexity_a = complexity_rec(cache, a).complexity
 
       let complexity_b = complexity_rec(cache, n / a).complexity
 
       let prod_complexity = complexity_a + complexity_b
 
-      case acc {
-        None ->
-          Some(ComplexityData(
+      case prod_complexity < acc.complexity {
+        True ->
+          ComplexityData(
             prod_complexity,
             DerivedMultiply(Derived(a), Derived(n / a)),
-          ))
+          )
 
-        Some(ComplexityData(complexity, _)) if prod_complexity < complexity ->
-          Some(ComplexityData(
-            prod_complexity,
-            DerivedMultiply(Derived(a), Derived(n / a)),
-          ))
-
-        _ -> acc
+        False -> acc
       }
     })
 
   sum_complexity
-}
-
-fn products(
-  k: Int,
-  max: Int,
-  n: Int,
-  complexity: array.Array(ComplexityData),
-) -> array.Array(ComplexityData) {
-  use <- bool.guard(k > max, complexity)
-
-  let complexity_k =
-    array.get(complexity, k)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
-
-  let complexity_n =
-    array.get(complexity, n)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
-
-  let complexity_k_n = array.get(complexity, k * n)
-
-  let prod_value = complexity_k + complexity_n
-
-  let assert Ok(updated_complexity) = case complexity_k_n {
-    Error(_) ->
-      array.set(
-        complexity,
-        k * n,
-        ComplexityData(prod_value, DerivedMultiply(Derived(k), Derived(n))),
-      )
-    Ok(ComplexityData(k_n_value, _)) if prod_value < k_n_value ->
-      array.set(
-        complexity,
-        k * n,
-        ComplexityData(prod_value, DerivedMultiply(Derived(k), Derived(n))),
-      )
-    _ -> Ok(complexity)
-  }
-
-  products(k + 1, max, n, updated_complexity)
 }
 
 fn calc_t(t: Int, target: Int, index: Int) -> Int {
