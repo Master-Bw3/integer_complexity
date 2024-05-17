@@ -28,7 +28,7 @@ pub fn main() {
   use cache <- integer_complexity.new_cache()
 
   let complexity_of_ten =
-    integer_complexity.get_complexity(integer_complexity.new_cache(), 10)
+    integer_complexity.get_complexity(cache, 10)
   //complexity_of_ten = 7
 
   let complexity_expression_of_ten =
