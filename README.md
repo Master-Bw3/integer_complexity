@@ -25,11 +25,13 @@ gleam add integer_complexity
 import integer_complexity
 
 pub fn main() {
-  let #(cache, complexity_of_ten) =
-    integer_complexity.get_complexity(integer_complexity.new_cache(), 10)
+  use cache <- integer_complexity.new_cache()
+
+  let complexity_of_ten =
+    integer_complexity.get_complexity(cache, 10)
   //complexity_of_ten = 7
 
-  let #(cache, complexity_expression_of_ten) =
+  let complexity_expression_of_ten =
     integer_complexity.get_expression(cache, 10)
   //complexity_expression_of_ten = 
   //  Multiply(Add(One, One), Add(Multiply(Add(One, One), Add(One, One)), One))

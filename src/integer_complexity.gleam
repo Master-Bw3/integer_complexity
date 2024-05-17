@@ -5,19 +5,19 @@
 import gleam/bool
 import gleam/float
 import gleam/int
+import gleam/io
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam_community/maths/arithmetics
+import gleam_community/maths/piecewise
 import integer_complexity/expression.{type Expression}
 import integer_complexity/internal/array
-
-/// A cache used to store already-computed integer complexities. See: `integer_complexity.new_cache()`.
-pub opaque type ComplexitiesCache {
-  ComplexitiesCache(array: array.Array(ComplexityData), highest_computed: Int)
-}
+import integer_complexity/internal/memo
 
 /// The complexity and a valid expression of an Integer.
-type ComplexityData {
+@internal
+pub opaque type ComplexityData {
   ComplexityData(complexity: Int, from: DerivedExpression)
 }
 
@@ -34,282 +34,167 @@ const integer_limit = 2_147_483_647
 
 const default_data = ComplexityData(complexity: 0, from: DerivedOne)
 
-/// Create a new empty cache used to store computed integer complexities.
-pub fn new_cache() -> ComplexitiesCache {
-  let array =
-    [0, 1]
-    |> list.map(ComplexityData(_, DerivedOne))
-    |> array.from_list(default_data)
-  ComplexitiesCache(array, 0)
-}
+/// Create a new cache used to store computed integer complexities.
+pub const new_cache = memo.create
 
 /// Returns a list of integer complexities from 1 up to the specified integer. 
 /// Returns `Error(Nil)` if the specified integer is less than 1.
-pub fn get_complexities_up_to(
-  cache: ComplexitiesCache,
-  integer: Int,
-) -> Result(#(ComplexitiesCache, List(Int)), Nil) {
+pub fn get_complexities_up_to(cache, integer: Int) -> Result(List(Int), Nil) {
   use <- bool.guard(integer <= 0, Error(Nil))
 
-  case get_complexity_data_up_to(cache, integer) {
-    #(cache, data) -> Ok(#(cache, list.map(data, fn(x) { x.complexity })))
-  }
+  list.map(get_complexity_data_up_to(cache, integer), fn(x) { x.complexity })
+  |> Ok()
 }
 
 /// Returns a list of integer complexity expressins (one per integer) from 1 up to the specified integer.
 /// Returns `Error(Nil)` if the specified integer is less than 1.
 pub fn get_expressions_up_to(
-  cache: ComplexitiesCache,
+  cache,
   integer: Int,
-) -> Result(#(ComplexitiesCache, List(Expression)), Nil) {
+) -> Result(List(Expression), Nil) {
   use <- bool.guard(integer <= 0, Error(Nil))
 
-  case get_complexity_data_up_to(cache, integer) {
-    #(cache, data) ->
-      Ok(#(cache, list.map(data, fn(x) { construct_expression(cache, x.from) })))
-  }
+  list.map(get_complexity_data_up_to(cache, integer), fn(x) {
+    construct_expression(cache, x.from)
+  })
+  |> Ok()
 }
 
 /// Returns the complexity data from 1 up to the specified integer.
-fn get_complexity_data_up_to(
-  cache: ComplexitiesCache,
-  integer: Int,
-) -> #(ComplexitiesCache, List(ComplexityData)) {
-  case integer <= cache.highest_computed {
-    True -> {
-      let list =
-        array.to_list(cache.array)
-        |> list.drop(1)
-        |> list.take(integer)
+fn get_complexity_data_up_to(cache, integer: Int) -> List(ComplexityData) {
+  // case integer <= cache.highest_computed {
+  //   True -> {
+  //     let list =
+  //       array.to_list(cache.array)
+  //       |> list.drop(1)
+  //       |> list.take(integer)
 
-      #(cache, list)
-    }
+  //     #(cache, list)
+  //   }
 
-    False -> {
-      let assert Ok(new_cache) = extend_complexity_list(integer, cache)
-      get_complexity_data_up_to(ComplexitiesCache(new_cache, integer), integer)
-    }
-  }
+  //   False -> {
+  //     let assert Ok(new_cache) = extend_complexity_list(integer, cache)
+  //     get_complexity_data_up_to(ComplexitiesCache(new_cache, integer), integer)
+  //   }
+  // }
+
+  list.range(1, integer)
+  |> list.map(complexity_rec(cache, _))
 }
 
 /// Returns the integer complexity of the (absoulte value of the) specified integer.
-pub fn get_complexity(
-  cache cache: ComplexitiesCache,
-  of integer: Int,
-) -> #(ComplexitiesCache, Int) {
-  use <- bool.guard(integer == 0, #(cache, 0))
+pub fn get_complexity(cache cache, of integer: Int) -> Int {
+  use <- bool.guard(integer == 0, 0)
 
-  case get_complexity_data(cache, int.absolute_value(integer)) {
-    #(cache, data) -> #(cache, data.complexity)
-  }
+  get_complexity_data(cache, int.absolute_value(integer)).complexity
 }
 
 /// Returns a valid expression following the rules of integer complexity of the (absoulte value of the) specified integer.
 /// Note that there can be multiple valid expressions for an integer, but this function only
 /// generates a single expression. 
 /// Returns `Error(Nil)` if the specified integer is `0`.
-pub fn get_expression(
-  cache cache: ComplexitiesCache,
-  of integer: Int,
-) -> Result(#(ComplexitiesCache, Expression), Nil) {
+pub fn get_expression(cache cache, of integer: Int) -> Result(Expression, Nil) {
   use <- bool.guard(integer == 0, Error(Nil))
 
-  case get_complexity_data(cache, int.absolute_value(integer)) {
-    #(cache, data) -> Ok(#(cache, construct_expression(cache, data.from)))
-  }
+  get_complexity_data(cache, int.absolute_value(integer)).from
+  |> construct_expression(cache, _)
+  |> Ok()
 }
 
 /// Return the complexity data of the specified integer.
-fn get_complexity_data(
-  cache cache: ComplexitiesCache,
-  of integer: Int,
-) -> #(ComplexitiesCache, ComplexityData) {
-  case array.get(cache.array, integer) {
-    Ok(data) if integer <= cache.highest_computed -> #(cache, data)
-
-    _ -> {
-      let assert Ok(new_cache) = extend_complexity_list(integer, cache)
-
-      get_complexity_data(ComplexitiesCache(new_cache, integer), integer)
-    }
-  }
+fn get_complexity_data(cache cache, of integer: Int) -> ComplexityData {
+  complexity_rec(cache, integer)
 }
 
-/// Extends the cache up to the specified max_integer.
-fn extend_complexity_list(
-  max_integer: Int,
-  cache: ComplexitiesCache,
-) -> Result(array.Array(ComplexityData), Nil) {
-  //ensure positive integers only
-  use <- bool.guard(max_integer < 0, Error(Nil))
-
-  // let complexity_upper_bound = fn(_) { 2_147_483_647 }
-  // fn(integer) {
-  //   float.round(float.floor({ 3.0 *. log(int.to_float(integer)) /. log(2.0) }))
-  //   + 1
-  // }
-
-  let extension_start = cache.highest_computed
-  let complexity_array = cache.array
-
-  Ok(complexity_rec(
-    int.max(2, extension_start + 1),
-    max_integer,
-    complexity_array,
-  ))
-}
-
-/// Recursively extend the complexity_array up to max_integer
-fn complexity_rec(
-  n: Int,
-  max_integer: Int,
-  complexity_array: array.Array(ComplexityData),
-) -> array.Array(ComplexityData) {
-  // io.debug(list.map(array.to_list(complexity_array), fn(x) { x.complexity }))
-  use <- bool.lazy_guard(n > max_integer, fn() { complexity_array })
+/// Recursively calculate the complexity of an integer
+fn complexity_rec(cache, n: Int) -> ComplexityData {
+  use <- memo.memoize(cache, n)
+  use <- bool.guard(n == 1, ComplexityData(n, DerivedOne))
 
   //usual best value
-  //1 + complexity of (current integer - 1)
-  let usual_best_value =
-    array.get(complexity_array, n - 1)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
-    |> int.add(1)
+  //1 + complexity of [n - 1]
+  let base_complexity =
+    ComplexityData(
+      complexity_rec(cache, n - 1).complexity + 1,
+      DerivedAdd(Derived(n - 1), DerivedOne),
+    )
 
-  let complexity_n =
-    array.get(complexity_array, n)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
-
-  let assert Ok(complexity_array) = case usual_best_value < complexity_n {
-    True ->
-      array.set(
-        complexity_array,
-        n,
-        ComplexityData(usual_best_value, DerivedAdd(Derived(n - 1), DerivedOne)),
-      )
-    False -> Ok(complexity_array)
-  }
-
-  // computing kMax 
-  let assert target =
-    array.get(complexity_array, n - 1)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
-
+  let assert target = complexity_rec(cache, n - 1).complexity
   let t = calc_t(target / 2, target, n)
-
   let k_max = a000792(t)
 
-  // testing the sums
-  let complexity_array = sums(6, k_max, n, complexity_array)
+  let sum_test_result =
+    sums(cache, n, k_max)
+    |> option.unwrap(base_complexity)
 
-  // let complexity_array =
-  //   products(
-  //     2,
-  //     // float.round(
-  //     //   float.floor(float.min(
-  //     //     int.to_float(n),
-  //     //     int.to_float(max_integer) /. int.to_float(n),
-  //     //   )),
-  //     // ),
-  //     n,
-  //     n,
-  //     complexity_array,
-  //   )
+  let divisor_test_result =
+    divisors(cache, n)
+    |> option.unwrap(base_complexity)
 
-  // testing the divisors
-  let complexity_array = divisors(n, complexity_array)
+  let assert Ok(result) =
+    piecewise.list_minimum(
+      [base_complexity, sum_test_result, divisor_test_result],
+      fn(a, b) { int.compare(a.complexity, b.complexity) },
+    )
 
-  complexity_rec(n + 1, max_integer, complexity_array)
+  result
 }
 
-fn sums(
-  m: Int,
-  max: Int,
-  n: Int,
-  complexity: array.Array(ComplexityData),
-) -> array.Array(ComplexityData) {
-  use <- bool.guard(m > max, complexity)
+fn sums(cache, n: Int, max: Int) -> Option(ComplexityData) {
+  use <- bool.guard(max < 6, None)
 
-  let complexity_m =
-    array.get(complexity, m)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
+  list.range(6, max)
+  |> list.fold(None, fn(acc, m) {
+    let complexity_m = complexity_rec(cache, m).complexity
 
-  let complexity_n =
-    array.get(complexity, n)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
+    let complexity_n_m = complexity_rec(cache, n - m).complexity
 
-  let assert complexity_n_m =
-    array.get(complexity, n - m)
-    |> result.map(fn(x) { x.complexity })
-    |> result.unwrap(integer_limit)
+    let sum_value = complexity_m + complexity_n_m
 
-  let sum_value = complexity_m + complexity_n_m
+    case acc {
+      Some(ComplexityData(complexity, _)) if sum_value < complexity ->
+        Some(ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m))))
 
-  let assert Ok(updated_complexity) = case sum_value < complexity_n {
-    True ->
-      array.set(
-        complexity,
-        n,
-        ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m))),
-      )
-    False -> Ok(complexity)
-  }
+      None ->
+        Some(ComplexityData(sum_value, DerivedAdd(Derived(m), Derived(n - m))))
 
-  sums(m + 1, max, n, updated_complexity)
+      _ -> acc
+    }
+  })
 }
 
-fn divisors(
-  n: Int,
-  complexity_array: array.Array(ComplexityData),
-) -> array.Array(ComplexityData) {
+fn divisors(cache, n: Int) -> Option(ComplexityData) {
   let divisors = arithmetics.divisors(n)
   let smaller_divisors =
     list.take(divisors, float.round(int.to_float(list.length(divisors)) /. 2.0))
-
-  let complexity_data_n = array.get(complexity_array, n)
+    |> list.drop(1)
 
   let sum_complexity =
-    list.fold(smaller_divisors, complexity_data_n, fn(acc, a) {
-      let complexity_a =
-        array.get(complexity_array, a)
-        |> result.map(fn(x) { x.complexity })
+    list.fold(smaller_divisors, None, fn(acc, a) {
+      let complexity_a = complexity_rec(cache, a).complexity
 
-      let complexity_b =
-        array.get(complexity_array, n / a)
-        |> result.map(fn(x) { x.complexity })
+      let complexity_b = complexity_rec(cache, n / a).complexity
 
-      let prod_complexity_result =
-        result.map(complexity_a, fn(x) {
-          result.map(complexity_b, int.add(x, _))
-        })
-        |> result.flatten
+      let prod_complexity = complexity_a + complexity_b
 
-      case acc, prod_complexity_result {
-        Error(_), Ok(prod_complexity) ->
-          Ok(ComplexityData(
-            prod_complexity,
-            DerivedAdd(Derived(a), Derived(n / a)),
-          ))
-
-        Ok(data_n), Ok(prod_complexity) if prod_complexity < data_n.complexity ->
-          Ok(ComplexityData(
+      case acc {
+        None ->
+          Some(ComplexityData(
             prod_complexity,
             DerivedMultiply(Derived(a), Derived(n / a)),
           ))
 
-        Ok(data_n), _ -> Ok(data_n)
+        Some(ComplexityData(complexity, _)) if prod_complexity < complexity ->
+          Some(ComplexityData(
+            prod_complexity,
+            DerivedMultiply(Derived(a), Derived(n / a)),
+          ))
 
-        _, _ -> Error(Nil)
+        _ -> acc
       }
     })
 
   sum_complexity
-  |> result.then(array.set(complexity_array, n, _))
-  |> result.unwrap(complexity_array)
 }
 
 fn products(
@@ -373,7 +258,7 @@ fn a000792_rec(n: Int, result: Int) -> Int {
 }
 
 fn construct_expression(
-  cache: ComplexitiesCache,
+  cache,
   derived_expression: DerivedExpression,
 ) -> Expression {
   case derived_expression {
@@ -389,7 +274,7 @@ fn construct_expression(
         construct_expression(cache, rhs),
       )
     Derived(n) -> {
-      let assert Ok(data) = array.get(cache.array, n)
+      let data = complexity_rec(cache, n)
       construct_expression(cache, data.from)
     }
   }
