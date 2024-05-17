@@ -15,12 +15,8 @@ import integer_complexity/expression.{type Expression}
 import integer_complexity/internal/array
 import integer_complexity/internal/memo
 
-/// A cache used to store already-computed integer complexities. See: `integer_complexity.new_cache()`.
-pub opaque type ComplexitiesCache {
-  ComplexitiesCache(array: array.Array(ComplexityData), highest_computed: Int)
-}
-
 /// The complexity and a valid expression of an Integer.
+@internal
 pub opaque type ComplexityData {
   ComplexityData(complexity: Int, from: DerivedExpression)
 }
