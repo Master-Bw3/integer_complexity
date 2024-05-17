@@ -23,6 +23,7 @@ gleam add integer_complexity
 
 ```gleam
 import integer_complexity
+import integer_complexity/expression
 
 pub fn main() {
   use cache <- integer_complexity.new_cache()
